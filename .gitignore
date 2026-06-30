@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# Environment & secrets
+.env
+.env.local
+*.pem
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project-specific
+resume/
+jobs/
+data/
+*.db
+*.xlsx
+*.log
+
+# Node (frontend — Phase 7)
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+# Playwright
+playwright-report/
+test-results/

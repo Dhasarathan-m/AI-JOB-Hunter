@@ -1,0 +1,28 @@
+"""Async database engine and session management."""
+
+from collections.abc import AsyncGenerator
+
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
+
+from backend.config import settings
+
+engine = create_async_engine(
+    settings.database_url,
+    echo=settings.debug,
+)
+
+AsyncSessionLocal = async_sessionmaker(
+    bind=engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+)
+
+
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    """Yield a database session and ensure it closes after the request."""
+    async with AsyncSessionLocal() as session:
+        yield session
