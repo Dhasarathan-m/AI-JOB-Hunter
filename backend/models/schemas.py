@@ -1,8 +1,23 @@
 """Pydantic schemas for API request and response validation."""
 
 from datetime import datetime
+from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+
+
+class Job(BaseModel):
+    """Represents a job listing payload."""
+
+    title: str
+    company: str
+    location: str
+    experience: Optional[str] = None
+    salary: Optional[str] = None
+    description: Optional[str] = None
+    apply_link: str
+    source: str
+    posted_date: Optional[str] = None
 
 
 class JobBase(BaseModel):

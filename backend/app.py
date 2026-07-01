@@ -31,7 +31,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.include_router(jobs_router)
+app.include_router(jobs_router, prefix="/api/v1", tags=["Jobs"])
 app.include_router(scraper_router)
 
 

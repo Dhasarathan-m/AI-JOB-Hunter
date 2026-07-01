@@ -1,107 +1,79 @@
-"""Orchestrates scrapers and persists results through JobService."""
+"""Service layer for orchestrating job scraping from multiple providers."""
+
+from __future__ import annotations
 
 import logging
 
-from pydantic import HttpUrl
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from backend.config import settings
-from backend.models.schemas import JobCreate, ScrapeRunResponse, ScrapeSourceResult
-from backend.scraper.base import BaseScraper, ScrapedJob
-from backend.scraper.filters import is_cybersecurity_job
-from backend.scraper.registry import build_scrapers
-from backend.services.job_service import JobService
+from backend.database.job_repository import JobRepository
+from backend.database.session import AsyncSessionLocal
+from backend.models.job import Job
+from backend.scraper.base import BaseScraper
+from backend.scraper.remoteok_scraper import RemoteOkScraper
 
 logger = logging.getLogger(__name__)
 
 
 class ScraperService:
-    """Runs configured scrapers and stores new cybersecurity jobs."""
+    """Coordinate scraping operations, duplicate handling, and persistence."""
 
-    def __init__(self, session: AsyncSession) -> None:
-        self._job_service = JobService(session)
+    def __init__(self, scrapers: list[BaseScraper] | None = None) -> None:
+        """Initialize the service with one or more scraper instances."""
+        self._scrapers: list[BaseScraper] = scrapers or [RemoteOkScraper()]
+        self._repository: JobRepository | None = None
 
-    async def run_all(self, include_playwright: bool = False) -> ScrapeRunResponse:
-        """Execute every configured scraper and persist matching jobs."""
-        scrapers = build_scrapers(include_playwright=include_playwright)
-        results: list[ScrapeSourceResult] = []
+    async def get_jobs(self) -> list[Job]:
+        """Fetch jobs from all configured scrapers, save them, and return them."""
+        all_jobs: list[Job] = []
 
-        for scraper in scrapers:
-            result = await self._run_scraper(scraper)
-            results.append(result)
-
-        return ScrapeRunResponse(
-            total_found=sum(item.jobs_found for item in results),
-            total_created=sum(item.jobs_created for item in results),
-            total_skipped=sum(item.jobs_skipped for item in results),
-            total_filtered=sum(item.jobs_filtered for item in results),
-            results=results,
-        )
-
-    async def _run_scraper(self, scraper: BaseScraper) -> ScrapeSourceResult:
-        """Run one scraper and track created, skipped, and filtered counts."""
-        company = self._resolve_company(scraper)
-
-        try:
-            scraped_jobs = await scraper.scrape()
-        except Exception as exc:
-            logger.exception("Scraper failed: %s (%s)", scraper.source_name, company)
-            return ScrapeSourceResult(
-                source=scraper.source_name,
-                company=company,
-                jobs_found=0,
-                jobs_created=0,
-                jobs_skipped=0,
-                jobs_filtered=0,
-                error=str(exc),
-            )
-
-        created = 0
-        skipped = 0
-        filtered = 0
-
-        for scraped in scraped_jobs:
-            if settings.scrape_filter_cybersecurity_only and not is_cybersecurity_job(
-                scraped.title,
-                scraped.description,
-            ):
-                filtered += 1
+        for scraper in self._scrapers:
+            try:
+                scraped_jobs = await scraper.scrape()
+            except Exception as exc:  # pragma: no cover - defensive logging
+                logger.exception("Scraper %s failed: %s", scraper.__class__.__name__, exc)
                 continue
 
-            job_create = self._to_job_create(scraped)
-            stored = await self._job_service.create_job_if_new(job_create)
-            if stored:
-                created += 1
-            else:
-                skipped += 1
+            if not scraped_jobs:
+                logger.info("Scraper %s returned no jobs", scraper.__class__.__name__)
+                continue
 
-        return ScrapeSourceResult(
-            source=scraper.source_name,
-            company=company,
-            jobs_found=len(scraped_jobs),
-            jobs_created=created,
-            jobs_skipped=skipped,
-            jobs_filtered=filtered,
-        )
+            logger.info(
+                "Scraper %s returned %d jobs",
+                scraper.__class__.__name__,
+                len(scraped_jobs),
+            )
+            all_jobs.extend(scraped_jobs)
+
+        deduped_jobs = self._deduplicate_jobs(all_jobs)
+
+        if not deduped_jobs:
+            logger.info("No jobs were collected from the configured scrapers")
+            return []
+
+        try:
+            async with AsyncSessionLocal() as session:
+                self._repository = JobRepository(session)
+                saved_count = await self._repository.save_jobs(deduped_jobs)
+                logger.info("Persisted %d jobs through the repository", saved_count)
+        except Exception as exc:
+            logger.exception("Failed to persist scraped jobs: %s", exc)
+
+        return deduped_jobs
 
     @staticmethod
-    def _resolve_company(scraper: BaseScraper) -> str:
-        """Read company name from scraper target when available."""
-        target = getattr(scraper, "_target", None)
-        return getattr(target, "company", scraper.source_name)
+    def _deduplicate_jobs(jobs: list[Job]) -> list[Job]:
+        """Remove jobs that share the same company, title, and apply link."""
+        seen: set[tuple[str, str, str]] = set()
+        deduped: list[Job] = []
 
-    @staticmethod
-    def _to_job_create(scraped: ScrapedJob) -> JobCreate:
-        """Convert a scraped job into a validated API/database payload."""
-        location = scraped.location
-        if location and len(location) > 255:
-            location = location[:252] + "..."
+        for job in jobs:
+            key = (
+                job.company.lower().strip(),
+                job.title.lower().strip(),
+                job.apply_link.lower().strip(),
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(job)
 
-        return JobCreate(
-            title=scraped.title,
-            company=scraped.company,
-            url=HttpUrl(scraped.url),
-            source=scraped.source,
-            location=location,
-            description=scraped.description,
-        )
+        return deduped
