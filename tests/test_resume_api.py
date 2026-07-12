@@ -10,6 +10,11 @@ client = TestClient(app)
 
 
 class ResumeApiTests(unittest.TestCase):
+    def test_health_endpoint_allows_cors_from_frontend(self):
+        response = client.get("/health", headers={"Origin": "http://localhost:3000"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["access-control-allow-origin"], "http://localhost:3000")
+
     def test_upload_resume_rejects_unsupported_type(self):
         response = client.post(
             "/resume/upload",

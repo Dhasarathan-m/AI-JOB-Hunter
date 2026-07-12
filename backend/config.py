@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     database_pool_max_overflow: int = 10
     scrape_filter_cybersecurity_only: bool = True
     resume_upload_max_size: int = 5_242_880  # 5 MB
+    cors_allowed_origins: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
 
 
 settings = Settings()
