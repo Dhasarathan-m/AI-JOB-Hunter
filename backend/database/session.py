@@ -9,10 +9,14 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from backend.config import settings
+from backend.database.config import database_url, max_overflow, pool_pre_ping, pool_size
 
 engine = create_async_engine(
-    settings.database_url,
+    database_url,
     echo=settings.debug,
+    pool_size=pool_size,
+    max_overflow=max_overflow,
+    pool_pre_ping=pool_pre_ping,
 )
 
 AsyncSessionLocal = async_sessionmaker(

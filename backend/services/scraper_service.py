@@ -3,64 +3,61 @@
 from __future__ import annotations
 
 import logging
+from typing import Iterable
+
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.job_repository import JobRepository
 from backend.database.session import AsyncSessionLocal
 from backend.models.job import Job
+from backend.models.schemas import ScrapeRunResponse, ScrapeSourceResult
 from backend.scraper.base import BaseScraper
-from backend.scraper.remoteok_scraper import RemoteOkScraper
+from backend.scraper.manager import ScraperManager
 
 logger = logging.getLogger(__name__)
 
 
 class ScraperService:
-    """Coordinate scraping operations, duplicate handling, and persistence."""
+    """Coordinate scraping operations, filtering, deduplication, and persistence."""
 
-    def __init__(self, scrapers: list[BaseScraper] | None = None) -> None:
-        """Initialize the service with one or more scraper instances."""
-        self._scrapers: list[BaseScraper] = scrapers or [RemoteOkScraper()]
-        self._repository: JobRepository | None = None
+    def __init__(self, session: AsyncSession | None = None, scrapers: list[BaseScraper] | None = None) -> None:
+        """Initialize the service with an optional session and a list of scrapers."""
+        self._session = session
+        self._scrapers = scrapers
 
-    async def get_jobs(self) -> list[Job]:
-        """Fetch jobs from all configured scrapers, save them, and return them."""
-        all_jobs: list[Job] = []
+    async def run_all(self, include_playwright: bool = False) -> ScrapeRunResponse:
+        """Run configured scrapers, save new jobs, and return a scrape summary."""
+        manager = ScraperManager(
+            scrapers=self._scrapers,
+            include_playwright=include_playwright,
+        )
+        scraped_jobs = await manager.run()
+        total_found = len(scraped_jobs)
+        deduped_jobs = self._deduplicate_jobs(scraped_jobs)
+        total_filtered = total_found - len(deduped_jobs)
+        total_created = 0
+        total_skipped = 0
+        results: list[ScrapeSourceResult] = []
 
-        for scraper in self._scrapers:
-            try:
-                scraped_jobs = await scraper.scrape()
-            except Exception as exc:  # pragma: no cover - defensive logging
-                logger.exception("Scraper %s failed: %s", scraper.__class__.__name__, exc)
-                continue
+        async with self._get_session() as session:
+            repository = JobRepository(session)
 
-            if not scraped_jobs:
-                logger.info("Scraper %s returned no jobs", scraper.__class__.__name__)
-                continue
+            if deduped_jobs:
+                total_created = await repository.save_jobs(deduped_jobs)
+                total_skipped = len(deduped_jobs) - total_created
 
-            logger.info(
-                "Scraper %s returned %d jobs",
-                scraper.__class__.__name__,
-                len(scraped_jobs),
-            )
-            all_jobs.extend(scraped_jobs)
+        logger.info("Persisted %d jobs through the repository", total_created)
 
-        deduped_jobs = self._deduplicate_jobs(all_jobs)
-
-        if not deduped_jobs:
-            logger.info("No jobs were collected from the configured scrapers")
-            return []
-
-        try:
-            async with AsyncSessionLocal() as session:
-                self._repository = JobRepository(session)
-                saved_count = await self._repository.save_jobs(deduped_jobs)
-                logger.info("Persisted %d jobs through the repository", saved_count)
-        except Exception as exc:
-            logger.exception("Failed to persist scraped jobs: %s", exc)
-
-        return deduped_jobs
+        return ScrapeRunResponse(
+            total_found=total_found,
+            total_created=total_created,
+            total_skipped=total_skipped,
+            total_filtered=total_filtered,
+            results=results,
+        )
 
     @staticmethod
-    def _deduplicate_jobs(jobs: list[Job]) -> list[Job]:
+    def _deduplicate_jobs(jobs: Iterable[Job]) -> list[Job]:
         """Remove jobs that share the same company, title, and apply link."""
         seen: set[tuple[str, str, str]] = set()
         deduped: list[Job] = []
@@ -77,3 +74,19 @@ class ScraperService:
             deduped.append(job)
 
         return deduped
+
+    async def _get_session(self) -> AsyncSession:
+        """Return the configured session or create a new session."""
+        if self._session is not None:
+            return self._session
+
+        return AsyncSessionLocal()
+
+    @staticmethod
+    def _extract_company(scraper: BaseScraper) -> str:
+        """Extract the scraper's configured company name when available."""
+        target = getattr(scraper, "_target", None)
+        if target is None:
+            return "unknown"
+        company = getattr(target, "company", None)
+        return str(company) if company is not None else "unknown"

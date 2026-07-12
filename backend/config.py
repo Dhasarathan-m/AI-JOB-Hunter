@@ -22,7 +22,10 @@ class Settings(BaseSettings):
     host: str = "127.0.0.1"
     port: int = 8000
     database_url: str = "sqlite+aiosqlite:///./data/jobs.db"
+    database_pool_size: int = 5
+    database_pool_max_overflow: int = 10
     scrape_filter_cybersecurity_only: bool = True
+    resume_upload_max_size: int = 5_242_880  # 5 MB
 
 
 settings = Settings()

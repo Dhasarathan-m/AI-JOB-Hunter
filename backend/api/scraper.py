@@ -18,6 +18,6 @@ async def run_scrapers(
     ),
     db: AsyncSession = Depends(get_db),
 ) -> ScrapeRunResponse:
-    """Collect jobs from all configured sources and store new listings."""
+    """Collect jobs from all configured sources and return a scrape summary."""
     service = ScraperService(db)
     return await service.run_all(include_playwright=include_playwright)

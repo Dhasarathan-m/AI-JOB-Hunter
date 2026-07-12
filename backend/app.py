@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from backend.api.jobs import router as jobs_router
+from backend.api.resume import router as resume_router
 from backend.api.scraper import router as scraper_router
 from backend.config import settings
 from backend.database.init_db import close_db, init_db
@@ -33,6 +34,7 @@ app = FastAPI(
 
 app.include_router(jobs_router, prefix="/api/v1", tags=["Jobs"])
 app.include_router(scraper_router)
+app.include_router(resume_router)
 
 
 @app.get("/health", tags=["system"])
