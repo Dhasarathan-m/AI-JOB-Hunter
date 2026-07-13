@@ -1,68 +1,126 @@
 # AI Job Hunter
 
-AI-powered job automation platform for cybersecurity roles. Scrapes job boards, ranks listings against your resume, generates Excel reports, and emails them on a schedule.
+An AI-powered full-stack job aggregation platform that automatically discovers cybersecurity jobs, stores them in a database, and presents them through a modern web interface.
+
+## Features
+
+- Automated job scraping from multiple job sources
+- FastAPI REST API
+- Next.js dashboard
+- Job search and filtering
+- Resume upload
+- SQLite database
+- Interactive Swagger API documentation
+- Modular scraping pipeline
+- Automated testing
 
 ## Tech Stack
 
-- **Backend:** Python 3.12, FastAPI, SQLite
-- **Scraping:** Playwright, BeautifulSoup
-- **AI:** Gemini API (preferred) or OpenAI
-- **Reports:** Pandas, OpenPyXL
-- **Frontend:** Next.js 15, TailwindCSS (Phase 7)
+### Backend
+- Python 3.12
+- FastAPI
+- SQLite
+- Playwright
+- BeautifulSoup
 
-## Quick Start
+### Frontend
+- Next.js 15
+- React
+- Tailwind CSS
 
-```bash
-# 1. Create virtual environment
-python -m venv .venv
+### Tools
+- Git
+- GitHub
+- Uvicorn
 
-# 2. Activate (Windows)
-.venv\Scripts\activate
-
-# 3. Install dependencies
-pip install -r requirements.txt
-
-# 4. Configure environment
-copy .env.example .env
-
-# 5. Run the API
-uvicorn backend.app:app --reload
-```
-
-Open [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) for interactive API documentation.
+---
 
 ## Project Structure
 
-```
+```text
 backend/
-    app.py          # FastAPI entry point
-    config.py       # Environment settings
-    api/            # HTTP route handlers
-    services/       # Business logic
-    models/         # Data models
-    scraper/        # Job collection
-    ai/             # Resume matching
-    database/       # Persistence layer
-    email/          # Report delivery
-    excel/          # Report generation
-    utils/          # Shared helpers
+frontend/
+tests/
+docs/
+data/
 ```
 
-## Development Phases
+---
 
-| Phase | Feature              | Status |
-|-------|----------------------|--------|
-| 1     | Project setup        | ✅     |
-| 2     | Job collection       |        |
-| 3     | Database storage     |        |
-| 4     | AI resume matching   |        |
-| 5     | Excel generation     |        |
-| 6     | Email automation     |        |
-| 7     | Next.js dashboard    |        |
-| 8     | Authentication       |        |
-| 9     | Scheduler            |        |
-| 10    | Deployment           |        |
+## Getting Started
 
-## License
+### Clone
 
-Private — for personal use.
+```bash
+git clone https://github.com/Dhasarathan-m/AI-JOB-Hunter.git
+```
+
+### Install
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+### Configure
+
+```bash
+copy .env.example .env
+```
+
+### Run Backend
+
+```bash
+uvicorn backend.app:app --reload
+```
+
+### Run Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+---
+
+## API Documentation
+
+After starting the backend:
+
+```
+http://127.0.0.1:8000/docs
+```
+
+---
+
+## Screenshots
+
+> Add screenshots here after deployment.
+
+- Home page
+- Job listing page
+- Job details page
+- Swagger API
+- Resume upload
+
+---
+
+## Future Improvements
+
+- User authentication
+- Email notifications
+- AI-powered resume scoring
+- Job recommendations
+- Docker support
+- CI/CD pipeline
+
+---
+
+## Author
+
+**Dhasa Rathan**
+
+GitHub:
+https://github.com/Dhasarathan-m
