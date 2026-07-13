@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Job } from '../types';
+import type { Job } from '../types';
 import { fetchJobs } from '../lib/api';
 
 export function useJobs() {
@@ -11,23 +11,27 @@ export function useJobs() {
 
   useEffect(() => {
     let isMounted = true;
-    fetchJobs()
-      .then((data) => {
+
+    const loadJobs = async () => {
+      try {
+        const data = await fetchJobs();
         if (isMounted) {
           setJobs(data);
           setError(null);
         }
-      })
-      .catch((err) => {
+      } catch (err) {
         if (isMounted) {
-          setError((err as Error).message);
+          setError(err instanceof Error ? err.message : 'Unable to load jobs.');
+          setJobs([]);
         }
-      })
-      .finally(() => {
+      } finally {
         if (isMounted) {
           setIsLoading(false);
         }
-      });
+      }
+    };
+
+    void loadJobs();
 
     return () => {
       isMounted = false;

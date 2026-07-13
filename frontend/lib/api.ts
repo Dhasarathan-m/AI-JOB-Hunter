@@ -1,22 +1,31 @@
 'use client';
 
-import { Job, ResumeUploadResponse, MatchResponse } from '../types';
+import type { Job, MatchResponse, ResumeUploadResponse } from '../types';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+function getApiBaseUrl(): string {
+  const configuredUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+  return configuredUrl ? configuredUrl.replace(/\/$/, '') : 'http://127.0.0.1:8000';
+}
 
 export async function fetchJobs(): Promise<Job[]> {
-  const response = await fetch(`${BASE_URL}/api/v1/jobs`);
+  const response = await fetch(`${getApiBaseUrl()}/api/v1/jobs`, {
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+
   if (!response.ok) {
-    throw new Error('Failed to load jobs.');
+    throw new Error('Failed to load jobs from the backend.');
   }
-  return response.json();
+
+  return (await response.json()) as Job[];
 }
 
 export async function uploadResume(file: File): Promise<ResumeUploadResponse> {
   const formData = new FormData();
   formData.append('file', file);
 
-  const response = await fetch(`${BASE_URL}/resume/upload`, {
+  const response = await fetch(`${getApiBaseUrl()}/resume/upload`, {
     method: 'POST',
     body: formData,
   });
@@ -30,7 +39,7 @@ export async function uploadResume(file: File): Promise<ResumeUploadResponse> {
 }
 
 export async function matchResume(resumeId: number): Promise<MatchResponse> {
-  const response = await fetch(`${BASE_URL}/resume/match?resume_id=${resumeId}`, {
+  const response = await fetch(`${getApiBaseUrl()}/resume/match?resume_id=${resumeId}`, {
     method: 'POST',
   });
 
@@ -43,7 +52,7 @@ export async function matchResume(resumeId: number): Promise<MatchResponse> {
 }
 
 export async function getMatches(resumeId: number): Promise<MatchResponse> {
-  const response = await fetch(`${BASE_URL}/resume/matches?resume_id=${resumeId}`);
+  const response = await fetch(`${getApiBaseUrl()}/resume/matches?resume_id=${resumeId}`);
 
   if (!response.ok) {
     const body = await response.text();
